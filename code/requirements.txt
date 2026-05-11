@@ -1,0 +1,16 @@
+# Python 3.11+, Apple Silicon (M-series) compatible
+# Supports MPS GPU acceleration on M4 Pro
+#
+# Install dependencies:
+#   pip install -r requirements.txt
+#
+# Then download spaCy language models:
+#   python -m spacy download de_core_news_sm
+#   python -m spacy download en_core_web_sm
+
+torch>=2.1.0
+spacy>=3.7.0
+dill>=0.3.7
+tqdm>=4.66.0
+numpy>=1.24.0
+tensorboard>=2.13.0

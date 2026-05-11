@@ -1,0 +1,437 @@
+================================================================================
+MODERNISATION NOTES
+Attention Is All You Need — PyTorch implementation
+================================================================================
+Date   : 2026-05-06
+Python : 3.11.9  (venv at .venv/)
+Target : MacBook M4 Pro 24 GB  (Apple Silicon, arm64)
+================================================================================
+
+
+────────────────────────────────────────────────────────────────────────────────
+1. WHY THE ORIGINAL CODE NO LONGER RUNS
+────────────────────────────────────────────────────────────────────────────────
+
+The repo was written around 2019–2020 and pinned very old packages:
+
+  Package            Pinned version    Problem
+  ─────────────────────────────────────────────────────────────────────────────
+  python             3.6.12            EOL since 2021
+  pytorch            1.3.1             No Apple Silicon / MPS support
+  torchtext          (implicit old)    Legacy API removed in torchtext 0.9.0
+  tensorflow         1.14.0            Never built for arm64 Mac; not needed
+  tensorboard        1.14.0            Bundled with TF 1.x; standalone since
+  msgpack-python     1.0.2             Not used anywhere in the source code
+  msgpack-numpy      0.4.7.1           Not used anywhere in the source code
+  terminado          0.9.2             Not used anywhere in the source code
+
+The two biggest breaking changes are:
+
+  A) The legacy torchtext data API was removed.
+     torchtext.data.Field, Dataset, BucketIterator and
+     torchtext.datasets.TranslationDataset / Multi30k.splits()
+     are gone in torchtext >= 0.9.0.
+
+  B) PyTorch 1.3.1 has no MPS backend.
+     Apple Silicon GPU acceleration (the "Metal Performance Shaders" backend)
+     was added in PyTorch 1.12 and stabilised in 2.x.
+     Without this, the M4 Pro's GPU is completely unused during training.
+
+
+────────────────────────────────────────────────────────────────────────────────
+2. requirements.txt  —  FULL REWRITE
+────────────────────────────────────────────────────────────────────────────────
+
+OLD                             NEW                         REASON
+──────────────────────────────────────────────────────────────────────────────
+python==3.6.12                  (removed — not a pip pkg)   venv handles Python
+pytorch==1.3.1                  torch>=2.1.0                MPS + modern API
+(no torchtext pin)              (removed — see note below)  ABI mismatch
+spacy==2.3.5                    spacy>=3.7.0                arm64 wheels exist
+tensorflow==1.14.0              (removed)                   not used; no arm64
+tensorboard==1.14.0             tensorboard>=2.13.0         standalone; no TF
+dill==0.3.3                     dill>=0.3.7                 minor update
+tqdm==4.56.0                    tqdm>=4.66.0                minor update
+(no numpy pin)                  numpy>=1.24.0               explicit dep
+msgpack-python==1.0.2           (removed)                   never imported
+msgpack-numpy==0.4.7.1          (removed)                   never imported
+terminado==0.9.2                (removed)                   never imported
+
+NOTE: torchtext was initially added but removed after testing revealed a
+hard ABI mismatch (see section 9, Fix 1).  Multi30k data is now fetched
+directly from GitHub inside compat.py — no torchtext C-extension required.
+
+After installing, two spaCy language models must be downloaded once:
+
+  python -m spacy download de_core_news_sm
+  python -m spacy download en_core_web_sm
+
+
+────────────────────────────────────────────────────────────────────────────────
+3. transformer/compat.py  —  NEW FILE
+────────────────────────────────────────────────────────────────────────────────
+
+Because the legacy torchtext API is gone, a compatibility shim was created at
+transformer/compat.py.  It re-implements the six things the project depended on,
+using only plain Python and PyTorch (no torchtext internals).
+
+  Class / function        What it replaces                  Key behaviour
+  ──────────────────────────────────────────────────────────────────────────
+  Vocab                   torchtext.vocab.Vocab             Holds stoi (word→int
+                                                            dict) and itos
+                                                            (int→word list).
+
+  Field                   torchtext.data.Field              Tokenises text,
+                                                            builds a Vocab from
+                                                            token iterators, and
+                                                            numericalises +
+                                                            pads a batch of
+                                                            token-lists into a
+                                                            LongTensor of shape
+                                                            [seq_len, batch].
+                                                            Special tokens
+                                                            (<unk>, <blank>,
+                                                            <s>, </s>) are
+                                                            inserted at the
+                                                            front of the vocab.
+
+  Example                 torchtext.data.Example            Simple object with
+                                                            .src and .trg
+                                                            attributes holding
+                                                            lists of string
+                                                            tokens.
+
+  Dataset                 torchtext.data.Dataset            Wraps a list of
+                                                            Examples; directly
+                                                            iterable (required
+                                                            by translate.py
+                                                            which loops over it
+                                                            example-by-example).
+
+  BucketIterator          torchtext.data.BucketIterator     Sorts examples by
+                                                            length, groups them
+                                                            into batches, pads
+                                                            each batch, and
+                                                            yields Batch objects
+                                                            whose .src / .trg
+                                                            are LongTensors of
+                                                            shape [seq_len, B]
+                                                            already on the
+                                                            target device.
+                                                            When train=True it
+                                                            shuffles within
+                                                            pools of 100×batch
+                                                            examples (mirrors
+                                                            the old bucket
+                                                            strategy).
+
+  TranslationDataset      torchtext.datasets.               Reads two parallel
+                          TranslationDataset                plain-text files
+                                                            (path+'.src' and
+                                                            path+'.trg'), runs
+                                                            each line through
+                                                            the Field tokeniser,
+                                                            applies an optional
+                                                            length filter, and
+                                                            builds a Dataset.
+
+  multi30k_splits()       Multi30k.splits()                 Downloads Multi30k
+                                                            gzip files directly
+                                                            from the official
+                                                            github.com/multi30k/
+                                                            dataset repo (no
+                                                            torchtext needed),
+                                                            decompresses them to
+                                                            a local cache, then
+                                                            tokenises each line
+                                                            via the supplied
+                                                            Field objects and
+                                                            returns (train, val,
+                                                            test) Datasets.
+                                                            Updated after testing
+                                                            revealed the torchtext
+                                                            C-extension was
+                                                            incompatible with the
+                                                            installed torch
+                                                            (see section 9).
+
+WHY a shim instead of rewriting the loaders?
+  The processed data is serialised to a .pkl file by preprocess.py and later
+  loaded by train.py and translate.py.  The pickle contains Field objects and
+  lists of Example objects.  By keeping the same class names and attributes
+  (vocab.stoi, vocab.itos, example.src, example.trg), the pickle format stays
+  compatible across all three scripts without changing any of the core model
+  or training logic.
+
+
+────────────────────────────────────────────────────────────────────────────────
+4. train.py  —  TWO CHANGES
+────────────────────────────────────────────────────────────────────────────────
+
+  Change 1 — Import fix (lines 17–18)
+  ─────────────────────────────────────
+  BEFORE:
+      from torchtext.data import Field, Dataset, BucketIterator
+      from torchtext.datasets import TranslationDataset
+
+  AFTER:
+      from transformer.compat import Field, Dataset, BucketIterator, TranslationDataset
+
+  Reason: the torchtext module paths no longer exist; compat.py provides the
+  same names with the same interface.
+
+  Change 2 — MPS device detection (line ~268)
+  ─────────────────────────────────────────────
+  BEFORE:
+      device = torch.device('cuda' if opt.cuda else 'cpu')
+
+  AFTER:
+      if opt.cuda:
+          if torch.cuda.is_available():
+              device = torch.device('cuda')
+          elif torch.backends.mps.is_available():
+              device = torch.device('mps')
+          else:
+              print('[Warning] CUDA/MPS not available, falling back to CPU.')
+              device = torch.device('cpu')
+      else:
+          device = torch.device('cpu')
+
+  Reason: the original code only knew about CUDA (NVIDIA) or CPU.  On an M4
+  Mac there is no CUDA; the GPU is exposed through Apple's MPS backend.  The
+  flag -no_cuda still forces CPU-only mode.  The priority order is:
+    CUDA (if somehow running on an NVIDIA GPU) → MPS → CPU.
+
+
+────────────────────────────────────────────────────────────────────────────────
+5. preprocess.py  —  FOUR CHANGES
+────────────────────────────────────────────────────────────────────────────────
+
+  Change 1 — Import fix (lines 13–15)
+  ─────────────────────────────────────
+  BEFORE:
+      import torchtext.data
+      import torchtext.datasets
+      from torchtext.datasets import TranslationDataset
+
+  AFTER:
+      from transformer.compat import Field, TranslationDataset, multi30k_splits
+
+  Change 2 — Field construction (two places: main() and main_wo_bpe())
+  ─────────────────────────────────────────────────────────────────────
+  BEFORE:
+      field = torchtext.data.Field(...)
+      SRC   = torchtext.data.Field(...)
+      TRG   = torchtext.data.Field(...)
+
+  AFTER:
+      field = Field(...)
+      SRC   = Field(...)
+      TRG   = Field(...)
+
+  Change 3 — Multi30k dataset download (main_wo_bpe())
+  ──────────────────────────────────────────────────────
+  BEFORE:
+      train, val, test = torchtext.datasets.Multi30k.splits(
+              exts   = ('.' + opt.lang_src, '.' + opt.lang_trg),
+              fields = (SRC, TRG),
+              filter_pred=filter_examples_with_length)
+
+  AFTER:
+      train, val, test = multi30k_splits(
+              exts=('.' + opt.lang_src, '.' + opt.lang_trg),
+              fields=(SRC, TRG),
+              filter_pred=filter_examples_with_length)
+
+  Reason: Multi30k.splits() was a class method on the old Dataset class.
+  multi30k_splits() now handles direct download without torchtext.
+
+  Change 4 — spaCy model name mapping (main_wo_bpe()) [found during testing]
+  ────────────────────────────────────────────────────────────────────────────
+  BEFORE:
+      src_lang_model = spacy.load(opt.lang_src)   # e.g. spacy.load('de')
+      trg_lang_model = spacy.load(opt.lang_trg)   # e.g. spacy.load('en')
+
+  AFTER:
+      _spacy_model = {
+          'de': 'de_core_news_sm', 'el': 'el_core_news_sm',
+          'en': 'en_core_web_sm',  'es': 'es_core_news_sm',
+          ...
+      }
+      src_lang_model = spacy.load(_spacy_model[opt.lang_src])
+      trg_lang_model = spacy.load(_spacy_model[opt.lang_trg])
+
+  Reason: spaCy v3 removed 2-letter language shortcuts entirely.
+  Calling spacy.load('de') now raises [E941] — you must use the full model
+  name (e.g. 'de_core_news_sm').  A lookup dict maps every supported
+  language code to its corresponding small model name.
+
+
+────────────────────────────────────────────────────────────────────────────────
+6. translate.py  —  TWO CHANGES
+────────────────────────────────────────────────────────────────────────────────
+
+  Change 1 — Import fix (line 9)
+  ────────────────────────────────
+  BEFORE:
+      from torchtext.data import Dataset
+
+  AFTER:
+      from transformer.compat import Dataset
+
+  Change 2 — MPS device detection (line ~82)
+  ────────────────────────────────────────────
+  Same cuda → mps → cpu pattern as train.py (see section 4, Change 2).
+
+
+────────────────────────────────────────────────────────────────────────────────
+7. FILES NOT CHANGED
+────────────────────────────────────────────────────────────────────────────────
+
+  transformer/Models.py       Pure PyTorch; no torchtext dependency.
+  transformer/Layers.py       Pure PyTorch.
+  transformer/Modules.py      Pure PyTorch.
+  transformer/SubLayers.py    Pure PyTorch.
+  transformer/Optim.py        Pure PyTorch.
+  transformer/Translator.py   Pure PyTorch.
+  transformer/Constants.py    Constants only; unchanged.
+  learn_bpe.py                No torchtext dependency.
+  apply_bpe.py                No torchtext dependency.
+  train_multi30k_de_en.sh     Shell invocation; unchanged.
+
+
+────────────────────────────────────────────────────────────────────────────────
+8. HOW TO RUN  (M4 Pro)
+────────────────────────────────────────────────────────────────────────────────
+
+  # 1. Activate the venv and install
+  source .venv/bin/activate
+  pip install -r requirements.txt
+  python -m spacy download de_core_news_sm
+  python -m spacy download en_core_web_sm
+
+  # 2. Preprocess  (downloads Multi30k, builds vocabulary, saves .pkl)
+  python preprocess.py \
+      -lang_src de -lang_trg en \
+      -save_data multi30k_de_en.pkl \
+      -share_vocab
+
+  # 3. Train  (auto-selects MPS on M4 Pro)
+  #    The -no_cuda flag is intentionally absent so MPS is used.
+  bash train_multi30k_de_en.sh
+
+  # 4. Translate
+  python translate.py \
+      -model output/.../model.chkpt \
+      -data_pkl multi30k_de_en.pkl \
+      -output pred.txt
+
+
+────────────────────────────────────────────────────────────────────────────────
+9. ADDITIONAL FIXES FOUND DURING TEST RUN
+────────────────────────────────────────────────────────────────────────────────
+
+Three more bugs surfaced the first time the full pipeline was actually executed
+(install → preprocess → 1-epoch train).  All three are now fixed.
+
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │ Fix 1 — torchtext C-extension ABI mismatch                             │
+  │ Affects: transformer/compat.py, requirements.txt                       │
+  └─────────────────────────────────────────────────────────────────────────┘
+
+  What happened:
+    pip install torch torchtext pulled in torch 2.11.0 and torchtext 0.18.0.
+    On the first import torchtext raised:
+
+      OSError: Symbol not found: __ZN3c105ErrorC1E...
+      Expected in: libc10.dylib
+
+    torchtext ships a compiled C extension (libtorchtext.so) that is linked
+    against the specific PyTorch C++ ABI it was built with.  torchtext 0.18.0
+    was built against torch 2.3.x; torch 2.11.0 has a different ABI, so the
+    dynamic linker cannot resolve the symbols at load time.  There is no
+    torchtext release on PyPI that was compiled against torch 2.11.0.
+
+  Fix:
+    Removed torchtext from requirements.txt entirely.
+    Rewrote multi30k_splits() in transformer/compat.py to download the
+    Multi30k dataset directly from the official GitHub repository
+    (github.com/multi30k/dataset) using only Python's built-in urllib and
+    gzip modules.  Files are cached locally under .data/multi30k/ so the
+    download only happens once.  The rest of compat.py already used pure
+    PyTorch — this makes the whole shim completely torchtext-free.
+
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │ Fix 2 — spaCy v3 removed 2-letter model shortcuts                      │
+  │ Affects: preprocess.py                                                  │
+  └─────────────────────────────────────────────────────────────────────────┘
+
+  What happened:
+    After the torchtext fix, preprocess.py crashed at:
+
+      src_lang_model = spacy.load('de')
+
+    with error [E941]:
+      "It looks like you're trying to load a model from a shortcut,
+       which is obsolete as of spaCy v3.0."
+
+    spaCy v2 allowed loading a model by 2-letter ISO code.  spaCy v3
+    requires the full model package name (e.g. 'de_core_news_sm').
+
+  Fix:
+    Added a _spacy_model dict in preprocess.py that maps each supported
+    2-letter code to its full spaCy v3 model name.  The parser arguments
+    and the rest of the function are unchanged; only the spacy.load() calls
+    use the mapping.
+
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │ Fix 3 — Vocab class missing __len__                                     │
+  │ Affects: transformer/compat.py                                          │
+  └─────────────────────────────────────────────────────────────────────────┘
+
+  What happened:
+    After Multi30k downloaded and spaCy tokenised successfully, the script
+    crashed at:
+
+      print('[Info] Get source language vocabulary size:', len(SRC.vocab))
+
+    with:
+      TypeError: object of type 'Vocab' has no len()
+
+    The original torchtext Vocab class supported len(); our replacement did
+    not implement __len__.
+
+  Fix:
+    Added __len__ to the Vocab class in transformer/compat.py:
+
+      def __len__(self):
+          return len(self.itos)
+
+
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │ Verified result after all fixes                                         │
+  └─────────────────────────────────────────────────────────────────────────┘
+
+  Installed packages (actual versions resolved by pip):
+    torch        2.11.0
+    spacy        3.8.14
+    dill         0.4.1
+    tqdm         4.67.3
+    numpy        2.4.4
+    tensorboard  2.20.0
+
+  Preprocessing:
+    Multi30k downloaded and cached to .data/multi30k/
+    Shared DE+EN vocabulary: 9,520 tokens
+    Pickle saved: multi30k_de_en.pkl
+
+  Training (1 epoch, batch size 256, full transformer):
+    Device:     MPS  (M4 Pro GPU confirmed active)
+    Train ppl:  8945.8  |  accuracy: 11.1 %
+    Val   ppl:  8350.6  |  accuracy: 12.0 %
+    Checkpoint: output/test_run/model.chkpt  (206 MB)
+
+  High perplexity on epoch 1 is expected — the learning rate is still in
+  the warmup phase and the model has barely started to converge.
+
+================================================================================
