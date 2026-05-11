@@ -1,0 +1,103 @@
+Sample Translations — Transformer DE→EN  (beam size 5)
+======================================================================
+
+Example 1
+  Source (DE) : ein mann mit einem orangefarbenen hut , der etwas anstarrt .
+  Reference   : a man in an orange hat starring at something .
+  Prediction  : a man in an orange hard hat and a hard hat points to something .
+
+Example 2
+  Source (DE) : ein boston terrier läuft über saftig-grünes gras vor einem weißen zaun .
+  Reference   : a boston terrier is running on lush green grass in front of a white fence .
+  Prediction  : a dog is running across a grassy field with a red <unk> in its mouth .
+
+Example 3
+  Source (DE) : ein mädchen in einem karateanzug bricht ein brett mit einem tritt .
+  Reference   : a girl in karate uniform breaking a stick with a front kick .
+  Prediction  : a young girl in blue is holding a sword and pointing at a picture .
+
+Example 4
+  Source (DE) : fünf leute in winterjacken und mit helmen stehen im schnee mit schneemobilen im hintergrund .
+  Reference   : five people wearing winter jackets and helmets stand in the snow , with snowmobiles in the background .
+  Prediction  : six people wearing hats are standing in the snow with trees in the background in the background with trees in the background in the background with trees in the background in the background in the background in the background in the background in the background in the background with trees in the background in the background in the background in the background in the background in the background in the background in the background in the background in the background in the background in the background in the background in the background in the background in the background with
+
+Example 5
+  Source (DE) : leute reparieren das dach eines hauses .
+  Reference   : people are fixing the roof of a house .
+  Prediction  : workers are laying up on the railroad tracks .
+
+Example 6
+  Source (DE) : ein hell gekleideter mann fotografiert eine gruppe von männern in dunklen anzügen und mit hüten , die um eine frau in einem trägerlosen kleid herum stehen .
+  Reference   : a man in light colored clothing photographs a group of men wearing dark suits and hats standing around a woman dressed in a strapless gown .
+  Prediction  : a man and a woman dressed in black are talking to a group of women in a military garb .
+
+Example 7
+  Source (DE) : eine gruppe von menschen steht vor einem iglu .
+  Reference   : a group of people standing in front of an igloo .
+  Prediction  : a group of people are standing in front of a booth with flags in the background .
+
+Example 8
+  Source (DE) : ein junge in einem roten trikot versucht , die home base zu erreichen , während der catcher im blauen trikot versucht , ihn zu fangen .
+  Reference   : a boy in a red uniform is attempting to avoid getting out at home plate , while the catcher in the blue uniform is attempting to catch him .
+  Prediction  : a baseball player in a red and white uniform reaches to hit the ball .
+
+Example 9
+  Source (DE) : ein typ arbeitet an einem gebäude .
+  Reference   : a guy works on a building .
+  Prediction  : a man working on a construction site .
+
+Example 10
+  Source (DE) : ein mann in einer weste sitzt auf einem stuhl und hält magazine .
+  Reference   : a man in a vest is sitting in a chair and holding magazines .
+  Prediction  : a man in a hat and hat is standing on a stage holding a guitar .
+
+Example 11
+  Source (DE) : eine mutter und ihr kleiner sohn genießen einen schönen tag im freien .
+  Reference   : a mother and her young song enjoying a beautiful day outside .
+  Prediction  : a mother and daughter enjoying themselves on a hot day .
+
+Example 12
+  Source (DE) : männer , die volleyball spielen , wobei ein mann den ball nicht trifft , während seine hände immer noch in der luft sind .
+  Reference   : men playing volleyball , with one player missing the ball but hands still in the air .
+  Prediction  : the man is playing the volleyball and the man is jumping in the background .
+
+Example 13
+  Source (DE) : eine frau , die in einer küche eine schale mit essen hält .
+  Reference   : a woman holding a bowl of food in a kitchen .
+  Prediction  : a woman in an apron and holding a bowl in her hand .
+
+Example 14
+  Source (DE) : ein sitzender mann , der an einem tisch in seinem haus mit einem werkzeug arbeitet .
+  Reference   : man sitting using tool at a table in his home .
+  Prediction  : a man is sitting at an open working on a laptop .
+
+Example 15
+  Source (DE) : drei leute sitzen in einer höhle .
+  Reference   : three people sit in a cave .
+  Prediction  : three people are in a harness with their faces on the end of the end .
+
+Example 16
+  Source (DE) : ein mädchen in einem jeanskleid läuft über einen erhöhten schwebebalken .
+  Reference   : a girl in a jean dress is walking along a raised balance beam .
+  Prediction  : a young girl in a red dress is riding her bike .
+
+Example 17
+  Source (DE) : eine blondine hält mit einem mann im sand händchen .
+  Reference   : a blond holding hands with a guy in the sand .
+  Prediction  : a man with sunglasses and sunglasses is standing on the street with a man in the background holding a guitar in the background .
+
+Example 18
+  Source (DE) : eine frau in einem grauen pulli und mit einer schwarzen baseballmütze steht in einem geschäft in der schlange .
+  Reference   : a woman in a gray sweater and black baseball cap is standing in line at a shop .
+  Prediction  : a woman in a red coat and black pants stands in front of a store selling a cigarette .
+
+Example 19
+  Source (DE) : die person im gestreiften shirt klettert auf einen berg .
+  Reference   : the person in the striped shirt is mountain climbing .
+  Prediction  : the person in the blue shirt is climbing a mountain .
+
+Example 20
+  Source (DE) : zwei männer tun so als seien sie statuen , während frauen ihnen zusehen .
+  Reference   : two men pretend to be statutes while women look on .
+  Prediction  : two men are making their <unk> .
+

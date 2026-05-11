@@ -1,0 +1,46 @@
+============================================================
+EXPERIMENT SUMMARY — Attention Is All You Need
+Multi30k DE→EN Translation
+============================================================
+
+Model Architecture
+──────────────────
+  Type          : Transformer (encoder-decoder)
+  d_model       : 512
+  d_ff          : 2048
+  Attention heads: 8
+  Encoder layers : 6
+  Decoder layers : 6
+  Dropout        : 0.1
+  Vocab size     : 9520 (shared DE+EN)
+  Parameters     : 48,977,920
+
+Training Setup
+──────────────
+  Dataset        : Multi30k DE→EN
+  Train / Val / Test : 29,000 / 1,014 / 1,000
+  Batch size     : 256 tokens
+  Warmup steps   : 4000
+  LR multiplier  : 2.0
+  Optimizer      : Adam (β1=0.9, β2=0.98, ε=1e-9)
+  Label smoothing: ε = 0.1
+  Device         : Apple MPS (M4 Pro)
+  Epochs trained : 64
+
+Results
+───────
+  Best val. PPL   : 16.0185  (epoch 28)
+  Best val. acc.  : 48.29 %  (epoch 53)
+  Final train PPL : 9.0855
+  Final val.  PPL : 22.6145
+  Test BLEU       : BLEU = 8.76 32.1/12.2/5.5/2.7 (BP = 1.000 ratio = 1.437 hyp_len = 18772 ref_len = 13063)
+
+Output Files
+────────────
+  fig1_perplexity.png   — Training & validation perplexity
+  fig2_accuracy.png     — Training & validation token accuracy
+  fig3_lr_schedule.png  — Learning rate warmup + decay curve
+  fig4_combined.png     — All panels in one figure (use in report)
+  translations.txt      — 20 sample DE→EN translations
+  predictions.txt       — Full test set predictions (1000 sentences)
+  references.txt        — Ground-truth English references

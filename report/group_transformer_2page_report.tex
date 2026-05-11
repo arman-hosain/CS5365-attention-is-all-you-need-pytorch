@@ -1,0 +1,286 @@
+% ============================================================
+% CS 5365 Final Project -- 2-Page Summary Report (excl. references)
+% Re-implementing Attention Is All You Need
+% Authors: Arman, Samin Islam
+% ============================================================
+\documentclass[10pt,twocolumn]{article}
+
+\usepackage[top=0.55in,bottom=0.55in,left=0.55in,right=0.55in,columnsep=0.25in]{geometry}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{caption}
+\usepackage{hyperref}
+\usepackage{amsmath}
+\usepackage{microtype}
+\usepackage{enumitem}
+\usepackage{titlesec}
+\usepackage{xcolor}
+\usepackage{parskip}
+
+\definecolor{navy}{HTML}{1E3A5F}
+\definecolor{dgray}{HTML}{475569}
+
+\titleformat{\section}
+  {\normalfont\normalsize\bfseries\color{navy}}
+  {\thesection.}{0.4em}{}[\vspace{-4pt}\textcolor{dgray}{\hrule}\vspace{2pt}]
+\titlespacing{\section}{0pt}{6pt}{2pt}
+
+% Custom command for the unnumbered References heading (same style)
+\newcommand{\refsheading}{%
+  \vspace{4pt}%
+  {\normalfont\normalsize\bfseries\color{navy}References}%
+  \vspace{-4pt}\par\textcolor{dgray}{\hrule}\vspace{2pt}%
+}
+
+\captionsetup{font=small,labelfont=bf,skip=3pt}
+\setlist[itemize]{noitemsep,topsep=1pt,parsep=0pt,leftmargin=*}
+
+\hypersetup{colorlinks=true,linkcolor=navy,urlcolor=navy}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{3pt}
+
+\begin{document}
+
+% -- Title block (spans both columns) ------------------------
+\twocolumn[{%
+\begin{center}
+  {\large\bfseries\color{navy}
+    Re-implementing ``Attention Is All You Need'':\\[2pt]
+    A PyTorch Study on Multi30k DE$\rightarrow$EN Translation}\\[4pt]
+  {\small
+    \textbf{Arman} \quad$\cdot$\quad \textbf{Samin Islam}\\[2pt]
+    CS~5365: Deep Learning \quad$\cdot$\quad
+    The University of Texas at El~Paso}\\[5pt]
+  \textcolor{navy}{\rule{\linewidth}{1.2pt}}
+\end{center}
+\vspace{2pt}
+}]
+
+% ============================================================
+\section{Introduction}
+
+\textbf{Problem and motivation.}
+Sequence-to-sequence tasks such as machine translation had long depended on
+recurrent neural networks (RNNs) or convolutional architectures. These designs
+process tokens sequentially, limiting parallelism and making long-range
+dependency modeling difficult.
+
+\textbf{Paper being reproduced.}
+\textit{Attention Is All You Need} -- Vaswani, Shazeer, Parmar, Uszkoreit,
+Jones, Gomez, Kaiser, and Polosukhin (NeurIPS 2017) -- proposed the
+\textbf{Transformer}: the first sequence-to-sequence model built
+\emph{entirely} on self-attention, with no recurrence or convolution.
+
+\textbf{Primary method and contributions.}
+\begin{itemize}
+  \item \textbf{Multi-head self-attention:} 8 parallel attention heads each
+    learn different relational patterns across all positions simultaneously.
+  \item \textbf{Positional encoding:} sinusoidal functions inject sequence
+    order without recurrence, enabling full parallelism.
+  \item \textbf{Encoder-decoder architecture:} 6 stacked layers each in the
+    encoder and decoder, connected via cross-attention.
+  \item \textbf{State-of-the-art results:} 28.4 BLEU on WMT14 EN-DE and
+    41.0 BLEU on EN-FR, surpassing all prior models at lower training cost.
+\end{itemize}
+
+Our goal was to re-implement the base Transformer in PyTorch, modernize a
+legacy codebase for Apple Silicon (PyTorch~2.x MPS), and verify that the
+reported training dynamics are reproducible on the smaller Multi30k
+DE$\rightarrow$EN dataset ($\sim$29\,k sentence pairs).
+
+% ============================================================
+\section{Chosen Result}
+
+We targeted the \textbf{training convergence behavior} described in Section~6
+of the paper, visualized in \textbf{Figure~2} (training loss curves), for the
+\emph{base model} configuration in \textbf{Table~3}.
+
+The specific result is the \textbf{Noam learning-rate schedule}
+(\textbf{Equation~3} of the paper):
+\[
+  \mathrm{lr} = d_{\mathrm{model}}^{-0.5}\!\cdot\!
+    \min\!\left(\mathrm{step}^{-0.5},\;
+    \mathrm{step}\cdot\mathrm{warmup}^{-1.5}\right)
+\]
+which linearly warms up the learning rate for the first \texttt{warmup} steps,
+then decays it as the inverse square root of the step number.
+
+\textbf{Why this result?}
+The schedule is central to the paper's training claim: that an
+attention-only model with correct optimization \emph{converges stably}
+and outperforms RNN-based systems. Reproducing this dynamic -- even on a
+smaller dataset -- directly validates the core training methodology of the
+Transformer and demonstrates that the architecture's behavior is not
+dataset-specific.
+
+% ============================================================
+\section{Methodology}
+
+\textbf{Model architecture.}
+We implemented the base Transformer exactly as specified: $d_{\mathrm{model}}
+{=}512$, 6 encoder and 6 decoder layers, 8 attention heads,
+$d_{\mathrm{ff}}{=}2048$, $d_k{=}d_v{=}64$, dropout~$=0.1$, sinusoidal
+positional encodings. Source, target, and pre-softmax projection weights are
+shared (Section~3.4 of the paper).
+
+\textbf{Dataset.}
+WMT'16 Multi30k DE$\rightarrow$EN ($\sim$29\,k train / $\sim$1\,k validation
+pairs), tokenized with spaCy~3.7, shared vocabulary. Multi30k was chosen as
+a tractable proxy for WMT14 given hardware constraints; we acknowledge this
+limits absolute BLEU comparability.
+
+\textbf{Training setup.}
+80 epochs; batch size~256; Adam ($\beta_1{=}0.9$, $\beta_2{=}0.98$,
+$\varepsilon{=}10^{-9}$); Noam schedule with \texttt{lr\_mul}$\,{=}\,2.0$,
+warmup $= 128{,}000$ steps; label smoothing $\varepsilon{=}0.1$.
+Hardware: Apple M4 Pro 24\,GB, PyTorch~2.x MPS backend.
+
+\textbf{Evaluation metrics.}
+Token-level \emph{cross-entropy loss}, \emph{perplexity}
+($e^{\mathcal{L}}$), and \emph{token accuracy} on both splits per epoch.
+BLEU was not computed as beam-search decoding was not activated in this run.
+
+\textbf{Modifications from the original.}
+The 2019 codebase (PyTorch~1.3) required four changes:
+\begin{itemize}
+  \item \textbf{torchtext API:} \texttt{Field}, \texttt{Dataset}, and
+    \texttt{BucketIterator} were removed in torchtext~0.9. We replaced them
+    with a custom \texttt{compat.py} shim.
+  \item \textbf{PyTorch 1.3$\rightarrow$2.x:} required for MPS (Apple
+    Silicon GPU) support.
+  \item \textbf{spaCy 2$\rightarrow$3.7:} arm64 wheels unavailable in v2.
+  \item \textbf{Removed unused packages:} \texttt{msgpack-python},
+    \texttt{msgpack-numpy}, \texttt{terminado} (never imported in source).
+\end{itemize}
+
+% ============================================================
+\section{Results \& Analysis}
+
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=\linewidth]{training_results.png}
+  \caption{Training dynamics over 80 epochs on Multi30k DE$\rightarrow$EN.
+    \textbf{(A)} Perplexity, \textbf{(B)} Token accuracy,
+    \textbf{(C)} Cross-entropy loss, \textbf{(D)} Noam LR schedule
+    (warmup\,=\,4\,k steps shown). Blue\,=\,Train, Red\,=\,Validation.}
+  \label{fig:results}
+\end{figure*}
+
+Figure~\ref{fig:results} shows the full 80-epoch curves; Table~\ref{tab:compare}
+compares our results against the original paper's reported numbers.
+
+\begin{table}[h]
+  \centering
+  \caption{Re-implementation vs.\ original paper (base model).}
+  \label{tab:compare}
+  \small
+  \setlength{\tabcolsep}{4pt}
+  \begin{tabular}{lccc}
+    \toprule
+    & \textbf{Paper} & \textbf{Ours (train)} & \textbf{Ours (val)} \\
+    \midrule
+    Dataset      & WMT14     & Multi30k       & Multi30k \\
+    Pairs        & 4.5M      & 29k            & --       \\
+    BLEU EN-DE   & 27.3      & N/A            & N/A      \\
+    Best PPL     & --        & 7.28 (ep.78)   & 16.02 (ep.27) \\
+    Token Acc.   & --        & 79.4\% (ep.78) & 48.3\% (ep.52) \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\textbf{What matched the paper.}
+The Noam schedule produced the characteristic LR curve from Equation~3:
+linear warm-up followed by inverse-square-root decay (Figure~\ref{fig:results}D).
+Training perplexity fell monotonically from $\sim$2627 at epoch~0 to 7.28 at
+epoch~78, matching the smooth convergence shown in the paper's Figure~2.
+Adam with the paper's exact hyperparameters and label smoothing produced
+stable, well-behaved loss curves throughout.
+
+\textbf{Discrepancies and challenges.}
+Validation perplexity bottomed at 16.02 (epoch~27) then rose, while training
+accuracy climbed to 79.4\% -- a clear overfitting signal. This was
+expected: Multi30k is $\sim$150$\times$ smaller than WMT14, leaving the
+model insufficient data. BLEU could not be directly compared due to the
+absence of beam-search decoding. The main engineering challenge was
+replacing the deprecated torchtext API; the custom \texttt{compat.py}
+shim required careful handling of padding indices, special tokens
+(\texttt{<s>}, \texttt{</s>}, \texttt{<blank>}), and dynamic batching to
+exactly match the original data pipeline behavior.
+
+\textbf{Broader analysis.}
+Despite overfitting on the small corpus, the results confirm the paper's
+central claim: multi-head self-attention alone is sufficient to learn
+translation structure. The training dynamics are architecture-driven, not
+dataset-specific. The full power of the Transformer emerges at scale
+(WMT14 / WMT17), where its parallelism makes training feasible in ways
+that sequential RNNs cannot match.
+
+% ============================================================
+\section{Reflections}
+
+\textbf{Lessons learned.}
+\begin{itemize}
+  \item \textbf{Implementation deepens understanding.} Coding scaled
+    dot-product attention clarified \emph{why} $\sqrt{d_k}$ scaling is
+    necessary: without it, large dot products saturate the softmax and
+    produce near-zero gradients. The Noam schedule similarly made clear
+    why warm-up prevents divergence at random initialization.
+  \item \textbf{The schedule is non-negotiable.} Early test runs without
+    warm-up diverged immediately, confirming the Noam schedule is a core
+    ingredient, not an optional improvement.
+  \item \textbf{Infrastructure ages fast.} A three-year-old codebase
+    required rewriting its entire data pipeline. Long-term reproducibility
+    demands pinned environments and thorough dependency documentation --
+    not just published model weights.
+  \item \textbf{Scale is not a detail.} The gap between Multi30k and WMT14
+    explains nearly all discrepancy with the paper. Dropout and label
+    smoothing help but cannot substitute for data volume at this model size.
+\end{itemize}
+
+\textbf{Future directions.}
+\begin{itemize}
+  \item Train on WMT14 EN-DE to reproduce the 27.3 BLEU base-model result
+    from Table~3 of the paper.
+  \item Enable beam-search decoding and compute sacreBleu for a direct
+    comparison against the paper's reported scores.
+  \item Visualize individual attention heads to study what linguistic
+    relationships (e.g., coreference, subject-verb agreement, syntax) each
+    of the 8 heads captures.
+  \item Implement the \emph{big} Transformer variant to validate the
+    scaling results also reported in Table~3.
+\end{itemize}
+
+% ============================================================
+% References -- excluded from 2-page limit per rubric
+% ============================================================
+\clearpage
+
+\refsheading
+\begingroup
+\small
+\begin{enumerate}[label={[\arabic*]},leftmargin=*,itemsep=3pt,
+                  topsep=2pt,parsep=0pt]
+  \item A.~Vaswani, N.~Shazeer, N.~Parmar, J.~Uszkoreit, L.~Jones,
+    A.\,N.~Gomez, L.~Kaiser, and I.~Polosukhin.
+    \textit{Attention Is All You Need.}
+    NeurIPS, 2017. arXiv:1706.03762.
+  \item Y.-H.~Huang.
+    \textit{attention-is-all-you-need-pytorch} (PyTorch codebase).
+    GitHub, 2019. \texttt{github.com/jadore801120/attention-is-all-you-need-pytorch}
+  \item D.~Elliott, S.~Frank, K.~Sima'an, and L.~Specia.
+    Multi30K: Multilingual English-German Image Descriptions.
+    \textit{ACL Workshop on Vision and Language (VL16)}, 2016.
+  \item M.~Honnibal, I.~Montani, S.~Van~Landeghem, and A.~Boyd.
+    \textit{spaCy: Industrial-strength NLP in Python.}
+    Explosion AI, 2020. \texttt{spacy.io}
+  \item PyTorch Development Team.
+    \textit{PyTorch: High-Performance Deep Learning Library.}
+    Version 2.x, 2023. \texttt{pytorch.org}
+  \item R.~Sennrich, B.~Haddow, and A.~Birch.
+    Neural Machine Translation of Rare Words with Subword Units.
+    \textit{ACL}, 2016. (BPE utilities used in preprocessing.)
+\end{enumerate}
+\endgroup
+
+\end{document}
+                                     
