@@ -68,7 +68,6 @@ attention-is-all-you-need-pytorch/
 │
 ├── results/
 │   ├── training_results.png           ← 4-panel training figure
-│   ├── model.chkpt                    ← Trained model weights (196 MB)
 │   └── logs/
 │       ├── train.log                  ← Epoch-by-epoch training metrics
 │       └── valid.log                  ← Epoch-by-epoch validation metrics
