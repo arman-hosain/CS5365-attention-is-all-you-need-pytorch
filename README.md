@@ -1,7 +1,7 @@
 # Re-implementing *Attention Is All You Need* — PyTorch / Multi30k DE→EN
 
 **CS 5365: Deep Learning — The University of Texas at El Paso**  
-Authors: Arman · Samin Islam
+Authors: Arman Hossain · Samin Islam
 
 ---
 
